@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUKOTSU HISTORY</title>
+    <!-- Google Fonts: Zen Kaku Gothic New -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Zen Kaku Gothic New', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            overflow-x: hidden;
+        }
+        
+        /* Red Sheet Effect */
+        .red-sheet-active .answer-text {
+            color: #ff3333 !important; /* Ensure text is red */
+        }
+        .red-sheet-overlay {
+            pointer-events: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 50, 50, 0.95); /* High opacity red */
+            mix-blend-mode: multiply; /* Multiplies color, making red text disappear into red bg */
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            display: none;
+        }
+        .red-sheet-active .red-sheet-overlay {
+            opacity: 1;
+            display: block;
+        }
+
+        /* Mukotsu Utilities */
+        .border-thick {
+            border: 3px solid #000;
+        }
+        .border-b-thick {
+            border-bottom: 3px solid #000;
+        }
+        .no-radius {
+            border-radius: 0 !important;
+        }
+        
+        .btn-mukotsu {
+            background-color: #fff;
+            color: #000;
+            border: 3px solid #000;
+            padding: 1rem 2rem;
+            font-weight: 900;
+            transition: all 0.1s;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0 #000;
+        }
+        .btn-mukotsu:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #000;
+        }
+        .btn-mukotsu:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: translate(4px, 4px);
+        }
+
+        .btn-red {
+            background-color: #000;
+            color: #fff;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0 #ff0000;
+        }
+        .btn-red:active {
+            box-shadow: 2px 2px 0 #ff0000;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            height: 12px;
+            border: 3px solid #000;
+            margin-bottom: 20px;
+            background: #fff;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #000;
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        /* Card */
+        .flashcard {
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid #000;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            background: #fff;
+            position: relative;
+        }
+
+        .answer-reveal {
+            color: #ff0000;
+            font-weight: 700;
+            font-size: 1.5rem;
+            text-align: center;
+            margin-top: 1rem;
+            visibility: hidden;
+        }
+        .answer-reveal.visible {
+            visibility: visible;
+        }
+
+        /* Blink Animation for timeout */
+        @keyframes blink {
+            0% { background-color: #fff; }
+            50% { background-color: #000; color: #fff; }
+            100% { background-color: #fff; }
+        }
+        .blink-alert {
+            animation: blink 0.2s 2;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Red Sheet Overlay -->
+    <div id="redSheetOverlay" class="red-sheet-overlay"></div>
+
+    <!-- Header -->
+    <header class="border-b-thick p-4 flex justify-between items-center bg-white z-50 relative">
+        <h1 class="text-2xl font-black tracking-tighter">MUKOTSU<br>HISTORY</h1>
+        <button id="toggleRedSheet" class="btn-mukotsu text-xs py-2 px-4" style="box-shadow: 2px 2px 0 #ff0000;">
+            RED SHEET <span id="sheetStatus">OFF</span>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto p-6 max-w-2xl flex flex-col justify-center">
+        
+        <!-- Screen: START -->
+        <div id="startScreen" class="flex flex-col gap-6">
+            <div class="border-thick p-6 text-center">
+                <p class="font-bold mb-2">TARGET: HIGH SCHOOL EXAM</p>
+                <h2 class="text-4xl font-black mb-4">歴史年号<br>徹底反復</h2>
+                <p class="text-sm">1セット10問 / 制限時間10秒</p>
+            </div>
+
+            <div class="grid gap-4">
+                <button onclick="startGame('year_to_event')" class="btn-mukotsu w-full">
+                    MODE 01: 年代 <span class="text-gray-400">>>></span> 出来事
+                </button>
+                <button onclick="startGame('event_to_year')" class="btn-mukotsu w-full">
+                    MODE 02: 出来事 <span class="text-gray-400">>>></span> 年代
+                </button>
+                <button onclick="startGame('random')" class="btn-mukotsu w-full">
+                    MODE 03: ランダム MIX
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen: QUIZ -->
+        <div id="quizScreen" class="hidden">
+            <div class="flex justify-between items-end mb-2 font-bold">
+                <span id="qCount">Q. 01/10</span>
+                <span id="timerText">10.00</span>
+            </div>
+            
+            <div class="progress-container">
+                <div id="timerBar" class="progress-bar"></div>
+            </div>
+
+            <div id="cardArea" class="flashcard box-shadow-thick">
+                <p class="text-sm text-gray-500 font-bold mb-4 absolute top-4 left-4" id="categoryLabel">CATEGORY</p>
+                
+                <h3 id="questionText" class="text-3xl md:text-4xl font-black text-center mb-6 leading-tight">
+                    <!-- Question goes here -->
+                </h3>
+
+                <div class="w-full border-t-2 border-dashed border-gray-300 my-4"></div>
+
+                <div id="answerArea" class="answer-reveal answer-text">
+                    <!-- Answer goes here -->
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4" id="actionButtons">
+                <button id="btnShow" onclick="revealAnswer()" class="btn-mukotsu w-full col-span-2">
+                    SHOW ANSWER
+                </button>
+                <button id="btnNext" onclick="nextQuestion()" class="btn-mukotsu w-full col-span-2 hidden bg-black text-white">
+                    NEXT >>
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen: RESULT -->
+        <div id="resultScreen" class="hidden text-center">
+            <h2 class="text-4xl font-black mb-6">SESSION<br>COMPLETE</h2>
+            
+            <div class="border-thick p-6 mb-6 text-left">
+                <h3 class="font-bold border-b-2 border-black pb-2 mb-4">REVIEW LIST</h3>
+                <ul id="reviewList" class="text-sm space-y-3 max-h-64 overflow-y-auto">
+                    <!-- List items generated by JS -->
+                </ul>
+            </div>
+
+            <button onclick="location.reload()" class="btn-mukotsu w-full">
+                BACK TO TITLE
+            </button>
+        </div>
+
+    </main>
+
+    <footer class="p-4 text-center text-xs font-bold border-t-thick">
+        &copy; 2026 MUKOTSU STUDY
+    </footer>
+
+    <script>
+        // --- DATA ---
+        const historyData = [
+            // 時代の移り変わり
+            { year: "593年", event: "聖徳太子が摂政になる", category: "時代の節目" },
+            { year: "645年", event: "大化の改新", category: "時代の節目" },
+            { year: "710年", event: "平城京遷都", category: "時代の節目" },
+            { year: "794年", event: "平安京遷都", category: "時代の節目" },
+            { year: "1185年", event: "鎌倉幕府の実質的成立", category: "時代の節目" },
+            { year: "1338年", event: "足利尊氏が征夷大将軍に", category: "時代の節目" },
+            { year: "1573年", event: "室町幕府滅亡", category: "時代の節目" },
+            { year: "1603年", event: "徳川家康が征夷大将軍に", category: "時代の節目" },
+            { year: "1868年", event: "明治維新", category: "時代の節目" },
+            
+            // 大災・戦争・大事件
+            { year: "672年", event: "壬申の乱", category: "争乱" },
+            { year: "1274年", event: "文永の役（元寇）", category: "争乱" },
+            { year: "1467年", event: "応仁の乱", category: "争乱" },
+            { year: "1637年", event: "島原・天草一揆", category: "争乱" },
+            { year: "1657年", event: "明暦の大火", category: "災害" },
+            { year: "1732年", event: "享保の飢饉", category: "災害" },
+            { year: "1782年", event: "天明の飢饉", category: "災害" },
+            { year: "1783年", event: "浅間山の噴火", category: "災害" },
+            { year: "1833年", event: "天保の飢饉", category: "災害" },
+            { year: "1855年", event: "安政の大地震", category: "災害" },
+            { year: "1868年", event: "戊辰戦争", category: "戦争" },
+            { year: "1877年", event: "西南戦争", category: "戦争" },
+            { year: "1894年", event: "日清戦争", category: "戦争" },
+            { year: "1904年", event: "日露戦争", category: "戦争" },
+            { year: "1923年", event: "関東大震災", category: "災害" },
+            { year: "1931年", event: "満州事変", category: "戦争" },
+            { year: "1937年", event: "日中戦争", category: "戦争" },
+            { year: "1941年", event: "太平洋戦争", category: "戦争" },
+            { year: "1945年", event: "終戦・原爆投下", category: "戦争" },
+            { year: "1995年", event: "阪神・淡路大震災", category: "災害" },
+            { year: "2011年", event: "東日本大震災", category: "災害" },
+
+            // 世界
+            { year: "1492年", event: "コロンブス アメリカ到達", category: "世界" },
+            { year: "1775年", event: "アメリカ独立戦争", category: "世界" },
+            { year: "1789年", event: "フランス革命", category: "世界" },
+            { year: "1840年", event: "アヘン戦争", category: "世界" },
+            { year: "1853年", event: "ペリー来航", category: "世界" },
+            { year: "1857年", event: "インド大反乱", category: "世界" },
+            { year: "1861年", event: "南北戦争", category: "世界" },
+            { year: "1911年", event: "辛亥革命", category: "世界" },
+            { year: "1914年", event: "第一次世界大戦", category: "世界" },
+            { year: "1917年", event: "ロシア革命", category: "世界" },
+            { year: "1929年", event: "世界恐慌", category: "世界" },
+            { year: "1939年", event: "第二次世界大戦", category: "世界" },
+            { year: "1950年", event: "朝鮮戦争", category: "世界" },
+            { year: "1965年", event: "ベトナム戦争", category: "世界" },
+            { year: "1991年", event: "湾岸戦争", category: "世界" },
+            { year: "2001年", event: "アメリカ同時多発テロ", category: "世界" }
+        ];
+
+        // --- STATE ---
+        let currentMode = '';
+        let quizQueue = [];
+        let currentIndex = 0;
+        let timerInterval;
+        let timeLeft = 10;
+        const TIME_LIMIT = 10;
+        let isRedSheetActive = false;
+
+        // --- DOM ELEMENTS ---
+        const startScreen = document.getElementById('startScreen');
+        const quizScreen = document.getElementById('quizScreen');
+        const resultScreen = document.getElementById('resultScreen');
+        
+        const qCountEl = document.getElementById('qCount');
+        const timerTextEl = document.getElementById('timerText');
+        const timerBarEl = document.getElementById('timerBar');
+        
+        const categoryLabel = document.getElementById('categoryLabel');
+        const questionText = document.getElementById('questionText');
+        const answerArea = document.getElementById('answerArea');
+        const cardArea = document.getElementById('cardArea');
+        
+        const btnShow = document.getElementById('btnShow');
+        const btnNext = document.getElementById('btnNext');
+        const reviewList = document.getElementById('reviewList');
+
+        // --- LOGIC ---
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startGame(mode) {
+            currentMode = mode;
+            let pool = [...historyData];
+            
+            // Shuffle full pool first
+            pool = shuffle(pool);
+            
+            // Take first 10
+            quizQueue = pool.slice(0, 10);
+            
+            currentIndex = 0;
+            
+            startScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            // Reset UI
+            clearInterval(timerInterval);
+            timeLeft = TIME_LIMIT;
+            timerBarEl.style.width = '100%';
+            timerBarEl.style.transition = 'none'; // reset transition for instant width set
+            timerTextEl.textContent = timeLeft.toFixed(2);
+            cardArea.classList.remove('blink-alert');
+            
+            answerArea.classList.remove('visible');
+            btnShow.classList.remove('hidden');
+            btnNext.classList.add('hidden');
+
+            const data = quizQueue[currentIndex];
+            qCountEl.textContent = `Q. ${(currentIndex + 1).toString().padStart(2, '0')}/10`;
+            categoryLabel.textContent = data.category;
+
+            // Determine Question/Answer based on Mode
+            let qStr = "";
+            let aStr = "";
+
+            if (currentMode === 'year_to_event') {
+                qStr = data.year;
+                aStr = data.event;
+            } else if (currentMode === 'event_to_year') {
+                qStr = data.event;
+                aStr = data.year;
+            } else {
+                // Random
+                if (Math.random() > 0.5) {
+                    qStr = data.year;
+                    aStr = data.event;
+                } else {
+                    qStr = data.event;
+                    aStr = data.year;
+                }
+            }
+
+            questionText.textContent = qStr;
+            answerArea.textContent = aStr;
+
+            // Start Timer logic (UI only)
+            // Trigger reflow to restart CSS transition
+            void timerBarEl.offsetWidth; 
+            timerBarEl.style.transition = `width ${TIME_LIMIT}s linear`;
+            timerBarEl.style.width = '0%';
+
+            startTimer();
+        }
+
+        function startTimer() {
+            const startTime = Date.now();
+            
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                timeLeft = Math.max(0, TIME_LIMIT - elapsed);
+                
+                timerTextEl.textContent = timeLeft.toFixed(2);
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    revealAnswer(true);
+                }
+            }, 50);
+        }
+
+        function revealAnswer(isTimeout = false) {
+            clearInterval(timerInterval);
+            timerBarEl.style.width = '0%'; // Ensure empty
+            timerTextEl.textContent = "0.00";
+            
+            answerArea.classList.add('visible');
+            btnShow.classList.add('hidden');
+            btnNext.classList.remove('hidden');
+
+            if (isTimeout) {
+                cardArea.classList.add('blink-alert');
+            }
+        }
+
+        function nextQuestion() {
+            currentIndex++;
+            if (currentIndex >= quizQueue.length) {
+                showResults();
+            } else {
+                loadQuestion();
+            }
+        }
+
+        function showResults() {
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+
+            // Build Review List
+            reviewList.innerHTML = '';
+            quizQueue.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between border-b border-gray-300 pb-1";
+                li.innerHTML = `
+                    <span class="font-bold">${item.year}</span>
+                    <span>${item.event}</span>
+                `;
+                reviewList.appendChild(li);
+            });
+        }
+
+        // --- RED SHEET TOGGLE ---
+        const toggleBtn = document.getElementById('toggleRedSheet');
+        const sheetStatus = document.getElementById('sheetStatus');
+        const body = document.body;
+
+        toggleBtn.addEventListener('click', () => {
+            isRedSheetActive = !isRedSheetActive;
+            if (isRedSheetActive) {
+                body.classList.add('red-sheet-active');
+                sheetStatus.textContent = "ON";
+                toggleBtn.classList.add('bg-black', 'text-white');
+                toggleBtn.classList.remove('bg-white', 'text-black');
+            } else {
+                body.classList.remove('red-sheet-active');
+                sheetStatus.textContent = "OFF";
+                toggleBtn.classList.remove('bg-black', 'text-white');
+                toggleBtn.classList.add('bg-white', 'text-black');
+            }
+        });
+
+    </script>
+</body>
+</html>
